@@ -3,6 +3,8 @@
 A project about recording, displaying, analyzing, and generating human-like
 mouse movements.
 
+![Mouse data aligned to x-axis](cover.png "Mouse data aligned to x-axis")
+
 ## Bug log
 
 * DONE identify arcs

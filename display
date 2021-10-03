@@ -106,18 +106,18 @@ def render_arcs(arcs, frame_cb = None, render_factor = 8):
                     start_pos = pos
                 new_x = pos.x
                 new_y = pos.y
-                if mode == 0:
-                    # Translate ray to (0,0)
-                    new_x = pos.x - start_pos.x
-                    new_y = pos.y - start_pos.y
+                # Translate ray to (0,0)
+                new_x = pos.x - start_pos.x
+                new_y = pos.y - start_pos.y
                 # Map ray to display space
-                new_x = int((new_x * dsp_wd_px) / gui_wd_px)
-                new_y = int((new_x * dsp_ht_px) / gui_ht_px)
-                # Shrink by a factor of 4 since we're centering
-                new_x = int(new_x / 4)
-                new_y = int(new_y / 4)
+                new_x = (new_x * dsp_wd_px) / gui_wd_px
+                new_y = (new_y * dsp_ht_px) / gui_ht_px
+                # Shrink by some factor. This is a heuristic since I don't
+                # want to do the math.
+                new_x = int(new_x / (2 * np.sqrt(2) * 1.2))
+                new_y = int(new_y / (2 * np.sqrt(2) * 1.2))
                 # Translate vertically to middle of display
-                new_x += int(dsp_ht_px / 2)
+                new_x += int(dsp_wd_px / 2)
                 new_y += int(dsp_ht_px / 2)
                 # Add some noise since we're upscaling
                 new_x += random.randrange(3)
@@ -194,9 +194,9 @@ def render_arcs(arcs, frame_cb = None, render_factor = 8):
 
 if __name__ == "__main__":
     arcs = pb_io.load_pb2(frames_pb2.Arcs(), "data/arcs.pb")
-    #render_arcs(arcs)
+    render_arcs(arcs)
     #render_arcs(arcs, show_frame, 4)
-    analyze_arcs(arcs)
+    #analyze_arcs(arcs)
 
     #arcs = pb_io.load_pb2(frames_pb2.Arcs(), "data/arcs.pb")
     #centered_arcs = pb_io.center_arcs(arcs)
