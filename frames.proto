@@ -1,0 +1,24 @@
+syntax = "proto2";
+
+package frames;
+
+message MousePositions {
+  message MousePosition {
+    optional double time = 1;
+    optional uint32 x = 2;
+    optional uint32 y = 3;
+    optional int32 sx = 4;
+    optional int32 sy = 5;
+  };
+
+  repeated MousePosition positions = 1;
+};
+
+message Arcs {
+  repeated MousePositions arcs = 1;
+};
+
+message DroppedFrame {
+  optional double time = 1;
+};
+

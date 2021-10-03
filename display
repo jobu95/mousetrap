@@ -1,0 +1,204 @@
+#!/usr/bin/python3
+
+import pb_io
+import frames_pb2
+import pyautogui as gui
+import numpy as np
+
+from cv2 import imshow as cv2_imshow
+from cv2 import imwrite as cv2_imwrite
+from cv2 import waitKey as cv2_waitKey
+from math import floor as math_floor
+import random
+import time
+
+gui_wd_px = 1440
+gui_ht_px = 900
+
+# opencv uses BGR order.
+white = [255, 255, 255]
+red = [0, 0, 255]
+
+def render_pixel(gui_x, gui_y, dsp_wd_px, dsp_ht_px, gui_wd_px, gui_ht_px,
+        frame, color = [255, 255, 255]):
+    # Render the next pixel.
+    dsp_x = int((gui_x * dsp_wd_px) / gui_wd_px)
+    dsp_y = int((gui_y * dsp_ht_px) / gui_ht_px)
+    # Add some noise since we're upscaling
+    #dsp_x += random.randrange(3)
+    #dsp_y += random.randrange(3)
+    frame[dsp_x, dsp_y, :] = color
+
+def show_frame(frame):
+    cv2_imshow("frame", frame)
+    cv2_waitKey(1)
+
+def analyze_arcs(arcs):
+    arcs2 = pb_io.center_arcs(arcs)
+    arcs2 = pb_io.unsign_arcs(arcs2)
+
+    num_arcs_of_duration = {}
+    num_arcs_of_length = {}
+    num_arcs_of_log2_length = {}
+    max_arc_length = 0
+    for arc in arcs2.arcs:
+        start = arc.positions[0]
+        end = arc.positions[-1]
+        if len(arc.positions) in num_arcs_of_duration:
+            num_arcs_of_duration[len(arc.positions)] += 1
+        else:
+            num_arcs_of_duration[len(arc.positions)] = 1
+        dx = end.x - start.x
+        dy = end.y - start.y
+        dist = int(np.sqrt(dx * dx + dy * dy))
+        if dist in num_arcs_of_length:
+            num_arcs_of_length[dist] += 1
+        else:
+            num_arcs_of_length[dist] = 1
+        if dist > max_arc_length:
+            max_arc_length = dist
+        dist_log2 = int(np.ceil(np.log2(dist)))
+        if dist_log2 == 0:
+            dist_log2 = 1
+        if dist_log2 in num_arcs_of_log2_length:
+            num_arcs_of_log2_length[dist_log2] += 1
+        else:
+            num_arcs_of_log2_length[dist_log2] = 1
+
+    print("Histogram: # arcs of a given duration (frames)")
+    for dur in sorted(num_arcs_of_duration):
+        print("  {}: {}".format(dur, num_arcs_of_duration[dur]))
+    print("Histogram: # arcs of a given length (pixels)")
+    for dist in sorted(num_arcs_of_length):
+        print("  {}: {}".format(dist, num_arcs_of_length[dist]))
+    print("Max arc length: {}".format(max_arc_length))
+    print("Histogram: # arcs of a given log2(length) (pixels)")
+    for dist in sorted(num_arcs_of_log2_length):
+        print("  {}-{}: {}".format(dist-1, dist, num_arcs_of_log2_length[dist]))
+
+def render_arcs(arcs, frame_cb = None, render_factor = 8):
+    dsp_wd_px = 4000
+    dsp_ht_px = 4000
+    frame = np.zeros((dsp_wd_px, dsp_ht_px, 3), np.uint8)
+    print("Rendering frame")
+
+    # debug
+    i = 0
+    dbg_s = time.monotonic()
+    # Mode 0: render originating from center of image
+    # Mode 1: render originating from center of image, aligned to
+    #         x-axis.
+    # Mode 2: render as recorded, no transforms other than scaling.
+    # Mode 3: render as recorded, but interpolate between points.
+    mode = 1
+
+    arcs2 = arcs
+    if mode == 1:
+        arcs2 = pb_io.center_arcs(arcs)
+        arcs2 = pb_io.unsign_arcs(arcs2)
+    for arc in arcs2.arcs:
+        prev_pos = None
+        start_pos = None
+
+        for pos in arc.positions:
+            if mode == 0 or mode == 1:
+                if start_pos == None:
+                    start_pos = pos
+                new_x = pos.x
+                new_y = pos.y
+                if mode == 0:
+                    # Translate ray to (0,0)
+                    new_x = pos.x - start_pos.x
+                    new_y = pos.y - start_pos.y
+                # Map ray to display space
+                new_x = int((new_x * dsp_wd_px) / gui_wd_px)
+                new_y = int((new_x * dsp_ht_px) / gui_ht_px)
+                # Shrink by a factor of 4 since we're centering
+                new_x = int(new_x / 4)
+                new_y = int(new_y / 4)
+                # Translate vertically to middle of display
+                new_x += int(dsp_ht_px / 2)
+                new_y += int(dsp_ht_px / 2)
+                # Add some noise since we're upscaling
+                new_x += random.randrange(3)
+                new_y += random.randrange(3)
+                frame[new_x, new_y, :] = white
+
+            if mode == 2:
+                render_pixel(pos.x, pos.y, dsp_wd_px, dsp_ht_px, gui_wd_px, gui_ht_px, frame)
+
+            if mode == 3:
+                # Render the line to the next pixel.
+                if prev_pos == None:
+                    prev_pos = pos
+                    continue
+
+                # Figure out we need to render every x coordinate or every y
+                # coordinate.
+                x_iteration = True
+                dy = pos.y - prev_pos.y
+                dx = pos.x - prev_pos.x
+                #print("dx, dy: {}, {}".format(dx, dy))
+                if abs(dy) > abs(dx):
+                    x_iteration = False
+
+                dy_sign = 1
+                if dy < 0:
+                    dy_sign = -1
+                dx_sign = 1
+                if dx < 0:
+                    dx_sign = -1
+
+                # Render every pixel along the line.
+                if x_iteration == True:
+                    left_x = prev_pos.x
+                    left_y = prev_pos.y
+                    right_x = pos.x
+                    right_y = pos.y
+                    if prev_pos.x > pos.x:
+                        left_x = pos.x
+                        left_y = pos.y
+                        right_x = prev_pos.x
+                        right_y = prev_pos.y
+                    begin = [left_x, right_x]
+                    end = [left_y, right_y]
+                    for i in range(0, abs(dx)):
+                        x_new = left_x + i
+                        y_new = np.interp(x_new, begin, end)
+                        #print("new: {},{}".format(x_new, y_new))
+                        render_pixel(x_new, y_new, dsp_wd_px, dsp_ht_px, gui_wd_px, gui_ht_px, frame)
+                else:
+                    bot_y = prev_pos.y
+                    bot_x = prev_pos.x
+                    top_y = pos.y
+                    top_x = pos.x
+                    if prev_pos.y > pos.y:
+                        bot_y = pos.y
+                        bot_x = pos.x
+                        top_y = prev_pos.y
+                        top_x = prev_pos.x
+                    begin = [bot_y, top_y]
+                    end = [bot_x, top_x]
+                    for i in range(0, abs(dy)):
+                        y_new = bot_y + i
+                        x_new = np.interp(y_new, begin, end)
+                        #print("new: {},{}".format(x_new, y_new))
+                        render_pixel(x_new, y_new, dsp_wd_px, dsp_ht_px, gui_wd_px, gui_ht_px, frame)
+
+                prev_pos = pos
+
+            if i % render_factor == 0 and frame_cb != None:
+                frame_cb(frame)
+            i += 1
+    cv2_imwrite("frame.png", frame)
+
+if __name__ == "__main__":
+    arcs = pb_io.load_pb2(frames_pb2.Arcs(), "data/arcs.pb")
+    #render_arcs(arcs)
+    #render_arcs(arcs, show_frame, 4)
+    analyze_arcs(arcs)
+
+    #arcs = pb_io.load_pb2(frames_pb2.Arcs(), "data/arcs.pb")
+    #centered_arcs = pb_io.center_arcs(arcs)
+    #pb_io.save_pb2(centered_arcs, "data/centered_arcs.pb")
+

@@ -1,0 +1,7 @@
+#!/usr/bin/python3
+
+import pb_io
+
+if __name__ == "__main__":
+    arcs = pb_io.extract_all_arcs("data/mouse_pos")
+    pb_io.save_pb2(arcs, "data/arcs.pb")
