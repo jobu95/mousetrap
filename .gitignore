@@ -1,0 +1,18 @@
+# vim cruft
+.*.sw[po]
+
+# mac cruft
+.DS_Store
+
+# generated proto code
+*_pb2.py
+
+# generated data
+data
+*.pb
+
+# python venv directory
+depython
+
+# generated images
+*.png
