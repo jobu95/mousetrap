@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
 
+import os
+
+os.add_dll_directory('C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v11.0/bin')
+os.add_dll_directory('C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v11.0/extras/CUPTI/lib64')
+os.add_dll_directory('C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v11.0/include')
+os.add_dll_directory('C:/Users/jevbb/Documents/mousetrap/cuda/bin')
+
 import glob
 import imageio
 import matplotlib.pyplot as plt
 import numpy as np
-import os
 import PIL
 import tensorflow as tf
 from tensorflow.keras import layers
@@ -109,7 +115,7 @@ checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer,
 		discriminator=discriminator)
 
 
-EPOCHS = 50
+EPOCHS = 500
 noise_dim = 100
 num_examples_to_generate = 16
 
